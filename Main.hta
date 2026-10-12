@@ -1,0 +1,802 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Nginx Dash</title>
+<HTA:APPLICATION
+  ID="NginxConsole"
+  APPLICATIONNAME="NginxConsole"
+  BORDER="thin"
+  CAPTION="yes"
+  MAXIMIZEBUTTON="yes"
+  MINIMIZEBUTTON="yes"
+  SHOWINTASKBAR="yes"
+  SINGLEINSTANCE="yes"
+  SYSMENU="yes"
+  SCROLL="no"
+  WINDOWSTATE="normal"
+/>
+<style>
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0; overflow: hidden;
+  font-family: "Microsoft YaHei UI", "Microsoft YaHei", "Segoe UI", Tahoma, sans-serif;
+  font-size: 13px; color: #1f2937; background: #eef2f7;
+}
+#app { display: flex; flex-direction: column; height: 100vh; }
+header { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #0f172a; color: #e2e8f0; }
+header .logo { font-weight: bold; font-size: 15px; letter-spacing: .5px; white-space: nowrap; }
+header .lbl { color: #94a3b8; white-space: nowrap; }
+header input.path {
+  flex: 1; min-width: 120px; padding: 4px 8px; border-radius: 5px;
+  border: 1px solid #334155; background: #1e293b; color: #e2e8f0; font-size: 13px;
+}
+header button { background: #334155; color: #e2e8f0; border: 1px solid #475569; }
+header button:hover { background: #475569; }
+#main { display: flex; flex: 1; gap: 10px; padding: 10px; min-height: 0; }
+#left { width: 470px; min-width: 400px; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+#right { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.card { background: #fff; border: 1px solid #d8dee9; border-radius: 8px; box-shadow: 0 1px 2px rgba(15,23,42,.05); }
+.card-title {
+  display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+  border-bottom: 1px solid #e5eaf1; font-weight: bold; color: #0f172a;
+  background: #f8fafc; border-radius: 8px 8px 0 0;
+}
+.spacer { flex: 1; }
+.muted { color: #64748b; font-weight: normal; }
+.status-head { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid #eef2f7; }
+.dot { width: 14px; height: 14px; border-radius: 50%; display: inline-block; }
+.dot.on { background: #22c55e; box-shadow: 0 0 0 3px rgba(34,197,94,.22); }
+.dot.off { background: #ef4444; box-shadow: 0 0 0 3px rgba(239,68,68,.18); }
+.status-text { font-size: 18px; font-weight: bold; }
+.pill { padding: 3px 12px; border-radius: 10px; font-size: 12px; background: #e2e8f0; color: #334155; }
+.kv-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.kv-table th { width: 108px; text-align: left; font-weight: normal; color: #64748b; padding: 6px 8px 6px 14px; vertical-align: top; white-space: nowrap; }
+.kv-table td { padding: 6px 14px 6px 0; word-break: break-all; }
+.kv-table tr + tr th, .kv-table tr + tr td { border-top: 1px solid #f1f5f9; }
+.kv-table td.ok { color: #15803d; font-weight: bold; }
+.kv-table td.warn { color: #b45309; font-weight: bold; }
+.kv-table td.err { color: #dc2626; font-weight: bold; }
+.btnbar { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 10px; }
+button.btn {
+  padding: 6px 14px; border-radius: 6px; border: 1px solid #cbd5e1; background: #fff;
+  color: #1f2937; cursor: pointer; font-size: 13px; font-family: inherit;
+}
+button.btn:hover { background: #f1f5f9; }
+button.btn:disabled { opacity: .45; cursor: default; background: #f8fafc; }
+button.primary { background: #2563eb; border-color: #2563eb; color: #fff; }
+button.primary:hover { background: #1d4ed8; }
+button.danger { background: #dc2626; border-color: #dc2626; color: #fff; }
+button.danger:hover { background: #b91c1c; }
+button.warn { background: #f59e0b; border-color: #f59e0b; color: #fff; }
+select.list { flex: 1; min-height: 140px; margin: 0 10px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: Consolas, "Courier New", monospace; font-size: 13px; }
+.log-card { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.logview {
+  flex: 1; margin: 0; padding: 8px 10px; overflow: auto; min-height: 0;
+  background: #0b1220; color: #cbd5e1; border-radius: 0 0 8px 8px;
+  font-family: Consolas, "Courier New", monospace; font-size: 12.5px; line-height: 1.6;
+  white-space: pre;
+}
+.chk { font-weight: normal; color: #475569; }
+footer { display: flex; align-items: center; gap: 10px; padding: 6px 12px; background: #0f172a; color: #cbd5e1; font-size: 12px; }
+.overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15,23,42,.5); display: none; z-index: 999; }
+.dialog { width: 800px; max-width: 94%; height: 72%; margin: 6% auto 0; background: #fff; border-radius: 10px; display: flex; flex-direction: column; overflow: hidden; }
+.dialog-head { padding: 10px 14px; background: #0f172a; color: #fff; font-weight: bold; }
+.dialog-body { flex: 1; display: flex; flex-direction: column; gap: 8px; padding: 12px; min-height: 0; }
+.field { display: flex; align-items: center; gap: 8px; }
+.input { flex: 1; padding: 6px 8px; border: 1px solid #cbd5e1; border-radius: 5px; font-size: 13px; font-family: Consolas, monospace; }
+.editor { flex: 1; min-height: 0; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: Consolas, "Courier New", monospace; font-size: 13px; resize: none; }
+.dialog-foot { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-top: 1px solid #e5eaf1; background: #f8fafc; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <span class="logo">Nginx Dash</span>
+    <span class="lbl">Nginx 目录</span>
+    <input id="rootPath" class="path" type="text" readonly value="">
+    <button class="btn" onclick="chooseNginxDir()">选择…</button>
+    <button class="btn" onclick="redetect()">重新检测</button>
+  </header>
+
+  <div id="main">
+    <div id="left">
+      <div class="card">
+        <div class="status-head">
+          <span id="statusDot" class="dot off"></span>
+          <div>
+            <div id="statusText" class="status-text">检测中…</div>
+            <div id="statusSub" class="muted">请稍候</div>
+          </div>
+          <span class="spacer"></span>
+          <span id="ctlState" class="pill">检测中…</span>
+        </div>
+        <table class="kv-table">
+          <tr><th>程序版本</th><td id="infoVersion">—</td></tr>
+          <tr><th>主进程 PID</th><td id="infoMaster">—</td></tr>
+          <tr><th>工作进程</th><td id="infoWorkers">—</td></tr>
+          <tr><th>配置检查</th><td id="infoConfigTest">—</td></tr>
+          <tr><th>server 引入</th><td id="infoInclude">—</td></tr>
+        </table>
+        <div class="btnbar">
+          <button id="btnStart" class="btn primary" onclick="startNginx()">启动</button>
+          <button id="btnStop" class="btn danger" onclick="stopNginx()">停止</button>
+          <button id="btnRestart" class="btn" onclick="restartNginx()">重启</button>
+          <button id="btnReload" class="btn" onclick="reloadNginx()">重载配置</button>
+          <button class="btn" onclick="testAndShowConfig()">检测配置</button>
+          <button class="btn" onclick="manualRefresh()">刷新</button>
+          <button id="btnFixInclude" class="btn warn" style="display:none" onclick="fixInclude()">修复引入</button>
+        </div>
+      </div>
+
+      <div class="card" style="flex:1; display:flex; flex-direction:column; min-height:0;">
+        <div class="card-title">
+          <span>配置管理</span>
+          <span class="muted" id="cfgCount">0 个配置</span>
+          <span class="spacer"></span>
+          <label class="chk"><input type="checkbox" id="autoReload" checked> 改动后自动重载</label>
+        </div>
+        <div class="btnbar" style="padding-bottom:4px">
+          <button class="btn" onclick="newConfig()">新建</button>
+          <button class="btn" onclick="editSelected()">编辑</button>
+          <button class="btn" onclick="deleteSelected()">删除</button>
+          <button class="btn" onclick="refreshConfigList()">刷新</button>
+          <button class="btn" onclick="openFolder(SERVERS_DIR)">打开目录</button>
+        </div>
+        <select id="cfgList" class="list" size="10" ondblclick="editSelected()"></select>
+      </div>
+    </div>
+
+    <div id="right">
+      <div class="card log-card">
+        <div class="card-title">
+          <span>日志（最新 1000 行）</span>
+          <select id="logSource" onchange="refreshLog()">
+            <option value="error">错误日志 logs/error.log</option>
+            <option value="access">访问日志 logs/access.log</option>
+            <option value="console">控制台输出 logs/console.log</option>
+          </select>
+          <label class="chk"><input type="checkbox" id="autoLog" checked> 自动刷新</label>
+          <span class="spacer"></span>
+          <span class="muted" id="logInfo"></span>
+          <button class="btn" onclick="refreshLog()">刷新</button>
+          <button class="btn" onclick="openFolder(LOGS_DIR)">打开日志目录</button>
+        </div>
+        <pre id="logView" class="logview"></pre>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <span id="message">就绪</span>
+    <span class="spacer"></span>
+    <span class="muted">最近刷新 <span id="lastUpdate">--:--:--</span></span>
+  </footer>
+</div>
+
+<div id="modal" class="overlay">
+  <div class="dialog">
+    <div class="dialog-head"><span id="modalTitle">编辑配置</span></div>
+    <div class="dialog-body">
+      <div class="field">
+        <label>文件名（保存到 conf/servers/）</label>
+        <input id="cfgName" class="input" type="text" spellcheck="false">
+      </div>
+      <textarea id="cfgText" class="editor" spellcheck="false" wrap="off"></textarea>
+    </div>
+    <div class="dialog-foot">
+      <span class="muted">保存后会自动执行 nginx -t 检查配置；若 nginx 正在运行且勾选了“改动后自动重载”，将自动重载。</span>
+      <span class="spacer"></span>
+      <button class="btn primary" onclick="saveConfig()">保存</button>
+      <button class="btn" onclick="closeModal()">取消</button>
+    </div>
+  </div>
+</div>
+
+<script language="JScript">
+var fso = new ActiveXObject("Scripting.FileSystemObject");
+var shell = new ActiveXObject("WScript.Shell");
+
+var CONSOLE_DIR = "";
+var SETTINGS_FILE = "";
+var ERROR_LOG_FILE = "";
+var NGINX_ROOT = "";
+var NGINX_EXE = "";
+var CONF_DIR = "";
+var SERVERS_DIR = "";
+var LOGS_DIR = "";
+var CACHE_VERSION = "";
+var READY = false;
+var TICK = 0;
+var WMI_FAILED = false;
+
+var TEMPLATE = [
+  "server {",
+  "    listen       8080;",
+  "    server_name  localhost;",
+  "",
+  "    location / {",
+  "        root   html;",
+  "        index  index.html index.htm;",
+  "    }",
+  "}",
+  ""
+].join("\r\n");
+
+function $id(x) { return document.getElementById(x); }
+function setText(el, s) { if (!el) return; try { el.textContent = s; } catch(e) { el.innerText = s; } }
+function trim(s) { return String(s).replace(/^\s+|\s+$/g, ""); }
+function pad2(n) { return (n < 10 ? "0" : "") + n; }
+function sleepMs(ms) { var t = new Date().getTime(); while (new Date().getTime() - t < ms) { } }
+function fmtSize(n) {
+  if (n < 1024) return n + " B";
+  if (n < 1024 * 1024) return (n / 1024).toFixed(1) + " KB";
+  return (n / 1024 / 1024).toFixed(2) + " MB";
+}
+function ensureFolder(p) { if (p && !fso.FolderExists(p)) fso.CreateFolder(p); }
+
+function logError(msg) {
+  try {
+    if (!ERROR_LOG_FILE) return;
+    var f = fso.OpenTextFile(ERROR_LOG_FILE, 8, true, -2);
+    f.WriteLine(new Date().toString() + "  " + msg);
+    f.Close();
+  } catch (e) { }
+}
+
+function detectConsoleDir() {
+  var c = [];
+  try { if (location.pathname) c.push(String(location.pathname)); } catch(e) { }
+  try { if (location.href) c.push(String(location.href)); } catch(e) { }
+  try { c.push(fso.GetAbsolutePathName(".") + "\\x"); } catch(e) { }
+  for (var i = 0; i < c.length; i++) {
+    var v = c[i];
+    if (!v) continue;
+    v = v.replace(/^file:\/*/i, "");
+    v = v.split("?")[0].split("#")[0];
+    try { v = decodeURIComponent(v); } catch(e) { }
+    v = v.replace(/\//g, "\\");
+    if (/^\\[A-Za-z]:/.test(v)) v = v.substring(1);
+    var dir = "";
+    try { dir = fso.GetParentFolderName(v); } catch(e) { dir = ""; }
+    if (dir && fso.FolderExists(dir)) return dir;
+  }
+  try { return fso.GetAbsolutePathName("."); } catch(e) { }
+  return "C:\\";
+}
+
+CONSOLE_DIR = detectConsoleDir();
+SETTINGS_FILE = CONSOLE_DIR + "\\nginx-console.ini";
+ERROR_LOG_FILE = CONSOLE_DIR + "\\nginx-console.error.log";
+
+window.onerror = function (msg, url, line) {
+  logError("脚本错误: " + msg + " (line " + line + ")");
+  return true;
+};
+
+function readTextFile(p) {
+  try {
+    var ts = fso.OpenTextFile(p, 1, false, -2);
+    var s = ts.ReadAll();
+    ts.Close();
+    return s;
+  } catch (e) { return ""; }
+}
+function writeTextFile(p, s) {
+  var ts = fso.CreateTextFile(p, true, false);
+  ts.Write(s);
+  ts.Close();
+}
+function readSetting(key) {
+  if (!SETTINGS_FILE || !fso.FileExists(SETTINGS_FILE)) return "";
+  var text = readTextFile(SETTINGS_FILE);
+  var re = new RegExp("^\\s*" + key + "\\s*=\\s*(.*)$", "m");
+  var m = re.exec(text);
+  return m ? trim(m[1]) : "";
+}
+function saveSettings() {
+  try { writeTextFile(SETTINGS_FILE, "NginxRoot=" + NGINX_ROOT + "\r\n"); } catch (e) { }
+}
+
+function runCapture(cmd, cwd) {
+  var tmp = "";
+  try { tmp = fso.GetSpecialFolder(2).Path + "\\ngxconsole_" + (new Date().getTime()) + "_" + Math.floor(Math.random() * 100000) + ".tmp"; }
+  catch (e) { tmp = CONSOLE_DIR + "\\ngxconsole_tmp.tmp"; }
+  var line = 'cmd.exe /d /c ' + cmd + ' > "' + tmp + '" 2>&1';
+  var prev = null;
+  try { prev = shell.CurrentDirectory; } catch (e) { }
+  if (cwd) { try { shell.CurrentDirectory = cwd; } catch (e) { } }
+  var code = -1;
+  try {
+    code = shell.Run(line, 0, true);
+  } catch (e) {
+    if (prev !== null) { try { shell.CurrentDirectory = prev; } catch (e2) { } }
+    return { out: "[命令执行失败] " + e.message, code: -1 };
+  }
+  if (prev !== null) { try { shell.CurrentDirectory = prev; } catch (e2) { } }
+  var out = readTextFile(tmp);
+  try { fso.DeleteFile(tmp, true); } catch (e) { }
+  return { out: out, code: code };
+}
+
+function readTail(p, maxLines) {
+  var res = { exists: false, text: "", shown: 0, total: 0, size: 0 };
+  if (!p || !fso.FileExists(p)) return res;
+  res.exists = true;
+  var size = 0;
+  try { size = fso.GetFile(p).Size; } catch (e) { }
+  res.size = size;
+  if (size === 0) return res;
+  var content = "";
+  var ts = null;
+  try {
+    ts = fso.OpenTextFile(p, 1, false, -2);
+    var maxBytes = 4 * 1024 * 1024;
+    if (size > maxBytes) {
+      try { ts.Skip(size - maxBytes); } catch (e) { }
+      content = ts.ReadAll();
+      var nl = content.indexOf("\n");
+      if (nl >= 0) content = content.substring(nl + 1);
+    } else {
+      content = ts.ReadAll();
+    }
+  } catch (e) {
+    if (ts) { try { ts.Close(); } catch (e2) { } }
+    res.text = "[无法读取日志] " + e.message;
+    return res;
+  }
+  if (ts) { try { ts.Close(); } catch (e2) { } }
+  var lines = content.split(/\r\n|\n|\r/);
+  while (lines.length > 0 && lines[lines.length - 1] === "") lines.pop();
+  res.total = lines.length;
+  var start = 0;
+  if (lines.length > maxLines) start = lines.length - maxLines;
+  res.shown = lines.length - start;
+  res.text = lines.slice(start).join("\r\n");
+  return res;
+}
+
+function setNginxRoot(p) {
+  p = String(p).replace(/\\+$/, "");
+  NGINX_ROOT = p;
+  NGINX_EXE = p + "\\nginx.exe";
+  CONF_DIR = p + "\\conf";
+  SERVERS_DIR = CONF_DIR + "\\servers";
+  LOGS_DIR = p + "\\logs";
+  CACHE_VERSION = "";
+  try { $id("rootPath").value = p; } catch (e) { }
+}
+function detectNginxRoot() {
+  var bases = [CONSOLE_DIR];
+  try { bases.push(fso.GetAbsolutePathName(".")); } catch (e) { }
+  for (var i = 0; i < bases.length; i++) {
+    var b = bases[i];
+    if (!b) continue;
+    if (fso.FileExists(b + "\\nginx\\nginx.exe")) return b + "\\nginx";
+    if (fso.FileExists(b + "\\nginx.exe")) return b;
+  }
+  return CONSOLE_DIR + "\\nginx";
+}
+function chooseNginxDir() {
+  var start = fso.FolderExists(NGINX_ROOT) ? NGINX_ROOT : CONSOLE_DIR;
+  var f = null;
+  try { f = shell.BrowseForFolder(0, "请选择包含 nginx.exe 的目录", 0, start); } catch (e) { }
+  if (!f) return;
+  var p = "";
+  try { p = f.Self.Path; } catch (e) { p = String(f); }
+  if (!fso.FileExists(p + "\\nginx.exe")) {
+    if (!confirm("该目录下未找到 nginx.exe：\n" + p + "\n\n仍要使用该目录吗？")) return;
+  }
+  setNginxRoot(p);
+  saveSettings();
+  manualRefresh();
+  testConfigSilent();
+}
+function redetect() {
+  setNginxRoot(detectNginxRoot());
+  saveSettings();
+  manualRefresh();
+  testConfigSilent();
+}
+function openFolder(p) {
+  try {
+    if (!fso.FolderExists(p)) { setMessage("目录不存在：" + p); return; }
+    shell.Run('explorer.exe "' + p + '"', 1, false);
+  } catch (e) { alert("无法打开目录：" + e.message); }
+}
+
+function getVersion() {
+  if (CACHE_VERSION) return CACHE_VERSION;
+  if (!fso.FileExists(NGINX_EXE)) return "未找到 nginx.exe";
+  var r = runCapture('nginx.exe -v', NGINX_ROOT);
+  var m = /nginx\/([0-9][0-9A-Za-z.\-]*)/i.exec(r.out);
+  CACHE_VERSION = m ? ("nginx/" + m[1]) : (trim(r.out).replace(/\s+/g, " ").substring(0, 60) || "未知");
+  return CACHE_VERSION;
+}
+function listNginxPids() {
+  var r = runCapture('tasklist /FI "IMAGENAME eq nginx.exe" /NH /FO CSV', NGINX_ROOT);
+  var pids = [];
+  var re = /"nginx\.exe"\s*,\s*"(\d+)"/gi;
+  var m;
+  while ((m = re.exec(r.out)) !== null) pids.push(m[1]);
+  var noTask = /没有运行的任务|No tasks are running|无运行任务/i.test(r.out);
+  if (pids.length === 0 && !noTask) {
+    pids = listNginxPidsWmi();
+    if (pids.length === 0) { pids = listNginxPidsNetstat(collectListenPorts()); }
+  }
+  return pids;
+}
+function collectListenPorts() {
+  var ports = [];
+  var files = [CONF_DIR + "\\nginx.conf"];
+  if (fso.FolderExists(SERVERS_DIR)) {
+    var en = new Enumerator(fso.GetFolder(SERVERS_DIR).Files);
+    for (; !en.atEnd(); en.moveNext()) {
+      if (/\.conf$/i.test(en.item().Name)) files.push(SERVERS_DIR + "\\" + en.item().Name);
+    }
+  }
+  for (var i = 0; i < files.length; i++) {
+    var text = readTextFile(files[i]).replace(/#[^\r\n]*/g, "");
+    var re = /(^|\s)listen\s+([0-9]{1,5})/gi;
+    var m;
+    while ((m = re.exec(text)) !== null) {
+      var p = parseInt(m[2], 10);
+      if (p > 0 && p <= 65535 && ("," + ports.join(",") + ",").indexOf("," + p + ",") < 0) ports.push(p);
+    }
+  }
+  if (ports.length === 0) ports.push(80);
+  return ports;
+}
+function listNginxPidsNetstat(ports) {
+  var pids = [];
+  var wanted = "," + ports.join(",") + ",";
+  var r = runCapture('netstat -ano -p tcp', NGINX_ROOT);
+  if (/拒绝访问|Access is denied/i.test(r.out)) return pids;
+  var lines = r.out.split(/\r\n|\n|\r/);
+  for (var i = 0; i < lines.length; i++) {
+    if (!/LISTENING/i.test(lines[i])) continue;
+    var m = /^\s*TCP\s+\S+:(\d+)\s+\S+\s+LISTENING\s+(\d+)\s*$/i.exec(lines[i]);
+    if (!m) continue;
+    var port = parseInt(m[1], 10);
+    var pid = m[2];
+    if (pid === "0") continue;
+    if (wanted.indexOf("," + port + ",") >= 0 && ("," + pids.join(",") + ",").indexOf("," + pid + ",") < 0) pids.push(pid);
+  }
+  return pids;
+}
+function listNginxPidsWmi() {
+  if (WMI_FAILED) return [];
+  var pids = [];
+  try {
+    var loc = new ActiveXObject("WbemScripting.SWbemLocator");
+    var svc = loc.ConnectServer(".", "root\\cimv2");
+    var col = svc.ExecQuery("SELECT ProcessId FROM Win32_Process WHERE Name = 'nginx.exe'");
+    var en = new Enumerator(col);
+    for (; !en.atEnd(); en.moveNext()) { pids.push(String(en.item().ProcessId)); }
+  } catch (e) { WMI_FAILED = true; }
+  return pids;
+}
+function readPidFile() {
+  var p = LOGS_DIR + "\\nginx.pid";
+  if (!fso.FileExists(p)) return "";
+  return readTextFile(p).replace(/[^0-9]/g, "");
+}
+function testConfig() {
+  if (!fso.FileExists(NGINX_EXE)) return "未找到 nginx.exe：" + NGINX_EXE;
+  var r = runCapture('nginx.exe -p "' + NGINX_ROOT + '" -c conf/nginx.conf -t', NGINX_ROOT);
+  return trim(r.out);
+}
+function applyConfigTest(ok, t) {
+  var el = $id("infoConfigTest");
+  setText(el, ok ? "通过" : "未通过");
+  el.className = ok ? "ok" : "err";
+  el.title = t;
+}
+function testConfigSilent() {
+  var t = testConfig();
+  var ok = /test is successful/i.test(t);
+  applyConfigTest(ok, t);
+  return ok;
+}
+function testAndShowConfig() {
+  var t = testConfig();
+  var ok = /test is successful/i.test(t);
+  applyConfigTest(ok, t);
+  if (ok) { setMessage("配置检查通过。"); alert("nginx 配置检查通过。\n\n" + t); }
+  else { setMessage("配置检查未通过。"); alert("nginx 配置检查未通过：\n\n" + t); }
+}
+function checkInclude() {
+  var p = CONF_DIR + "\\nginx.conf";
+  if (!fso.FileExists(p)) return { ok: false, msg: "找不到 conf/nginx.conf" };
+  var text = readTextFile(p);
+  if (/include\s+(?:conf\/)?servers\/\*\.conf\s*;/i.test(text)) return { ok: true, msg: "" };
+  return { ok: false, msg: "缺少 include servers/*.conf;" };
+}
+function fixInclude() {
+  var confPath = CONF_DIR + "\\nginx.conf";
+  if (!fso.FileExists(confPath)) { alert("找不到 " + confPath); return; }
+  if (!confirm("将在 nginx.conf 的 http 块中加入：\n\n    include servers/*.conf;\n\n是否继续？")) return;
+  var text = readTextFile(confPath);
+  var re = /(include\s+mime\.types\s*;)/i;
+  if (re.test(text)) {
+    text = text.replace(re, "$1\r\n\r\n    # load all server configs from conf/servers (added by Nginx console)\r\n    include       servers/*.conf;");
+  } else {
+    var idx = text.lastIndexOf("}");
+    if (idx < 0) { alert("无法自动定位 http 块，请手动添加 include servers/*.conf;"); return; }
+    text = text.substring(0, idx) + "    include       servers/*.conf;\r\n" + text.substring(idx);
+  }
+  try { writeTextFile(confPath, text); }
+  catch (e) { alert("写入失败：" + e.message); return; }
+  setMessage("已在 nginx.conf 中加入 include servers/*.conf;");
+  manualRefresh();
+  testAndShowConfig();
+}
+
+function setMessage(s) {
+  setText($id("message"), s);
+  var d = new Date();
+  setText($id("lastUpdate"), pad2(d.getHours()) + ":" + pad2(d.getMinutes()) + ":" + pad2(d.getSeconds()));
+}
+function refreshStatus() {
+  if (!READY) return;
+  var exists = fso.FileExists(NGINX_EXE);
+  var pids = exists ? listNginxPids() : [];
+  var running = pids.length > 0;
+  var master = running ? readPidFile() : "";
+  var workers = [];
+  for (var i = 0; i < pids.length; i++) { if (pids[i] !== master) workers.push(pids[i]); }
+  $id("statusDot").className = "dot " + (running ? "on" : "off");
+  setText($id("statusText"), running ? "运行中" : "已停止");
+  setText($id("statusSub"), running ? ("主进程 PID " + (master || "?") + "，工作进程 " + workers.length + " 个") : (exists ? "nginx 当前未运行" : "未找到 nginx.exe"));
+  setText($id("ctlState"), running ? "运行中" : "已停止");
+  setText($id("infoVersion"), exists ? getVersion() : "未找到 nginx.exe");
+  setText($id("infoMaster"), running ? (master || "未知") : "—");
+  setText($id("infoWorkers"), running ? (workers.length + (workers.length ? "  (" + workers.join(", ") + ")" : "")) : "—");
+  var inc = checkInclude();
+  setText($id("infoInclude"), inc.ok ? "已引入 servers/*.conf" : inc.msg);
+  $id("infoInclude").className = inc.ok ? "ok" : "warn";
+  $id("btnStart").disabled = running || !exists;
+  $id("btnStop").disabled = !running;
+  $id("btnRestart").disabled = !exists;
+  $id("btnReload").disabled = !running;
+  $id("btnFixInclude").style.display = inc.ok ? "none" : "inline-block";
+}
+function logPath(id) {
+  if (id === "access") return LOGS_DIR + "\\access.log";
+  if (id === "console") return LOGS_DIR + "\\console.log";
+  return LOGS_DIR + "\\error.log";
+}
+function refreshLog() {
+  if (!READY) return;
+  var p = logPath($id("logSource").value);
+  var t = readTail(p, 1000);
+  var pre = $id("logView");
+  var atBottom = (pre.scrollTop + pre.clientHeight) >= (pre.scrollHeight - 30);
+  if (!t.exists) setText(pre, "（日志文件不存在：" + p + "）\n\nnginx 启动后会自动生成。");
+  else if (t.text === "") setText(pre, "（日志为空）");
+  else setText(pre, t.text);
+  setText($id("logInfo"), t.exists ? (t.shown + " / " + t.total + " 行 · " + fmtSize(t.size)) : "文件不存在");
+  if (atBottom) { try { pre.scrollTop = pre.scrollHeight; } catch (e) { } }
+}
+function manualRefresh() {
+  refreshStatus();
+  refreshConfigList();
+  refreshLog();
+  setMessage("已刷新。");
+}
+
+function listConfigs() {
+  var arr = [];
+  if (!fso.FolderExists(SERVERS_DIR)) return arr;
+  var folder = fso.GetFolder(SERVERS_DIR);
+  var en = new Enumerator(folder.Files);
+  for (; !en.atEnd(); en.moveNext()) {
+    var f = en.item();
+    if (/\.conf$/i.test(f.Name)) arr.push({ name: f.Name, size: f.Size });
+  }
+  arr.sort(function (a, b) {
+    a = a.name.toLowerCase(); b = b.name.toLowerCase();
+    return a < b ? -1 : (a > b ? 1 : 0);
+  });
+  return arr;
+}
+function refreshConfigList() {
+  var sel = $id("cfgList");
+  var keep = sel.selectedIndex >= 0 ? sel.options[sel.selectedIndex].value : "";
+  while (sel.options.length > 0) sel.remove(0);
+  var arr = listConfigs();
+  for (var i = 0; i < arr.length; i++) {
+    var o = document.createElement("option");
+    o.value = arr[i].name;
+    o.text = arr[i].name + "   (" + fmtSize(arr[i].size) + ")";
+    sel.add(o);
+  }
+  if (keep) {
+    for (var j = 0; j < sel.options.length; j++) {
+      if (sel.options[j].value === keep) { sel.selectedIndex = j; break; }
+    }
+  }
+  setText($id("cfgCount"), arr.length + " 个配置");
+}
+function openEditor(name, text, isNew) {
+  $id("cfgName").value = name;
+  $id("cfgName").readOnly = !isNew;
+  $id("cfgText").value = text;
+  setText($id("modalTitle"), (isNew ? "新建配置" : "编辑配置") + " — " + name);
+  $id("modal").style.display = "block";
+  try { $id("cfgText").focus(); } catch (e) { }
+}
+function closeModal() { $id("modal").style.display = "none"; }
+function newConfig() {
+  var d = new Date();
+  var def = "server_" + d.getFullYear() + pad2(d.getMonth() + 1) + pad2(d.getDate()) + "_" + pad2(d.getHours()) + pad2(d.getMinutes()) + pad2(d.getSeconds()) + ".conf";
+  var name = prompt("请输入新配置文件名（将保存到 conf/servers/）：", def);
+  if (name === null) return;
+  name = trim(name);
+  if (name === "") return;
+  if (!/\.conf$/i.test(name)) name += ".conf";
+  if (!/^[A-Za-z0-9_\-.]+$/.test(name)) { alert("文件名只能包含字母、数字、下划线、连字符和点。"); return; }
+  ensureFolder(SERVERS_DIR);
+  if (fso.FileExists(SERVERS_DIR + "\\" + name)) { alert("配置已存在：" + name); return; }
+  openEditor(name, TEMPLATE, true);
+}
+function editSelected() {
+  var sel = $id("cfgList");
+  if (sel.selectedIndex < 0) { setMessage("请先在列表中选择一个配置。"); return; }
+  var name = sel.options[sel.selectedIndex].value;
+  var full = SERVERS_DIR + "\\" + name;
+  if (!fso.FileExists(full)) { alert("文件不存在：" + full); refreshConfigList(); return; }
+  openEditor(name, readTextFile(full), false);
+}
+function deleteSelected() {
+  var sel = $id("cfgList");
+  if (sel.selectedIndex < 0) { setMessage("请先在列表中选择一个配置。"); return; }
+  var name = sel.options[sel.selectedIndex].value;
+  if (!confirm("确定删除配置 " + name + " 吗？\n\n此操作不可撤销。")) return;
+  try { fso.DeleteFile(SERVERS_DIR + "\\" + name, true); }
+  catch (e) { alert("删除失败：" + e.message); return; }
+  afterConfigChange("已删除 " + name);
+}
+function saveConfig() {
+  var name = trim($id("cfgName").value);
+  var text = $id("cfgText").value;
+  if (name === "") { alert("请输入文件名。"); return; }
+  if (!/\.conf$/i.test(name)) name += ".conf";
+  if (!/^[A-Za-z0-9_\-.]+$/.test(name)) { alert("文件名只能包含字母、数字、下划线、连字符和点。"); return; }
+  var opens = (text.match(/\{/g) || []).length;
+  var closes = (text.match(/\}/g) || []).length;
+  if (opens !== closes) {
+    if (!confirm("大括号不配对：{ 共 " + opens + " 个，} 共 " + closes + " 个。\n\n仍要保存吗？")) return;
+  }
+  if (!/\bserver\s*\{/.test(text)) {
+    if (!confirm("内容中未找到 server { ... } 块。\n\n仍要保存吗？")) return;
+  }
+  ensureFolder(SERVERS_DIR);
+  try { writeTextFile(SERVERS_DIR + "\\" + name, text); }
+  catch (e) { alert("保存失败：" + e.message); return; }
+  closeModal();
+  afterConfigChange("已保存 " + name);
+}
+function afterConfigChange(actionText) {
+  refreshConfigList();
+  var t = testConfig();
+  var ok = /test is successful/i.test(t);
+  applyConfigTest(ok, t);
+  if (ok) {
+    if (listNginxPids().length > 0 && $id("autoReload").checked) {
+      runCapture('nginx.exe -p "' + NGINX_ROOT + '" -c conf/nginx.conf -s reload', NGINX_ROOT);
+      setMessage(actionText + "，配置检查通过，已自动重载 nginx。");
+      refreshLog();
+    } else {
+      setMessage(actionText + "，配置检查通过。");
+    }
+  } else {
+    setMessage(actionText + "，但配置检查未通过。");
+    alert("配置检查未通过：\n\n" + t + "\n\n请修正后重试。");
+  }
+  refreshStatus();
+}
+
+function startNginx() {
+  if (!fso.FileExists(NGINX_EXE)) { alert("未找到 nginx.exe：\n" + NGINX_EXE + "\n\n请点击“选择…”指定 Nginx 目录。"); return; }
+  var pids = listNginxPids();
+  if (pids.length > 0) { setMessage("nginx 已在运行（PID: " + pids.join(", ") + "）。"); refreshStatus(); return; }
+  var t = testConfig();
+  if (!/test is successful/i.test(t)) {
+    if (!confirm("配置检查未通过：\n\n" + t + "\n\n仍要尝试启动吗？")) { setMessage("已取消启动。"); return; }
+  }
+  ensureFolder(LOGS_DIR);
+  var consoleLog = LOGS_DIR + "\\console.log";
+  try { var cf = fso.CreateTextFile(consoleLog, true, false); cf.Write(""); cf.Close(); } catch (e) { }
+  var prev = null;
+  try { prev = shell.CurrentDirectory; } catch (e) { }
+  try { shell.CurrentDirectory = NGINX_ROOT; } catch (e) { }
+  var line = 'cmd.exe /d /c nginx.exe -p "' + NGINX_ROOT + '" -c conf/nginx.conf > "' + consoleLog + '" 2>&1';
+  try { shell.Run(line, 0, false); }
+  catch (e) {
+    if (prev !== null) { try { shell.CurrentDirectory = prev; } catch (e2) { } }
+    alert("启动失败：" + e.message);
+    return;
+  }
+  if (prev !== null) { try { shell.CurrentDirectory = prev; } catch (e2) { } }
+  sleepMs(1200);
+  var pids2 = listNginxPids();
+  if (pids2.length > 0) {
+    setMessage("nginx 已启动（PID: " + pids2.join(", ") + "）。");
+  } else {
+    setMessage("nginx 启动失败，请查看“控制台输出”日志。");
+    $id("logSource").value = "console";
+    refreshLog();
+    alert("nginx 未能启动，错误信息：\n\n" + (readTail(consoleLog, 30).text || "(无输出)"));
+  }
+  refreshStatus();
+}
+function stopNginx() {
+  if (!fso.FileExists(NGINX_EXE)) { alert("未找到 nginx.exe：\n" + NGINX_EXE); return; }
+  if (listNginxPids().length === 0) { setMessage("nginx 未在运行。"); refreshStatus(); return; }
+  runCapture('nginx.exe -p "' + NGINX_ROOT + '" -c conf/nginx.conf -s stop', NGINX_ROOT);
+  for (var i = 0; i < 12; i++) {
+    sleepMs(400);
+    if (listNginxPids().length === 0) break;
+  }
+  if (listNginxPids().length > 0) {
+    if (confirm("nginx 未能正常停止。是否强制结束所有 nginx 进程？\n\ntaskkill /F /IM nginx.exe")) {
+      runCapture('taskkill /F /IM nginx.exe', NGINX_ROOT);
+      sleepMs(600);
+    }
+  }
+  setMessage(listNginxPids().length === 0 ? "nginx 已停止。" : "停止未完成，仍有 nginx 进程在运行。");
+  refreshStatus();
+  refreshLog();
+}
+function restartNginx() {
+  if (listNginxPids().length > 0) stopNginx();
+  if (listNginxPids().length > 0) return;
+  startNginx();
+}
+function reloadNginx() {
+  if (listNginxPids().length === 0) { alert("nginx 未在运行，无法重载配置。"); return; }
+  var t = testConfig();
+  if (!/test is successful/i.test(t)) {
+    applyConfigTest(false, t);
+    setMessage("重载已取消（配置未通过检查）。");
+    alert("配置检查未通过，已取消重载：\n\n" + t);
+    return;
+  }
+  applyConfigTest(true, t);
+  var r = runCapture('nginx.exe -p "' + NGINX_ROOT + '" -c conf/nginx.conf -s reload', NGINX_ROOT);
+  setMessage("已发送重载信号。" + (trim(r.out) ? " " + trim(r.out) : ""));
+  refreshStatus();
+  refreshLog();
+}
+
+function onTick() {
+  if (!READY) return;
+  TICK++;
+  try { if ($id("autoLog").checked) refreshLog(); } catch (e) { logError("refreshLog: " + e.message); }
+  if (TICK % 2 === 0) { try { refreshStatus(); } catch (e) { logError("refreshStatus: " + e.message); } }
+}
+
+function init() {
+  var saved = readSetting("NginxRoot");
+  var root = "";
+  if (saved && fso.FileExists(saved + "\\nginx.exe")) root = saved;
+  else root = detectNginxRoot();
+  setNginxRoot(root);
+  saveSettings();
+  READY = true;
+  refreshConfigList();
+  if (fso.FolderExists(SERVERS_DIR)) { } else { try { ensureFolder(CONF_DIR); ensureFolder(SERVERS_DIR); } catch (e) { } }
+  refreshStatus();
+  refreshLog();
+  var ok = testConfigSilent();
+  setMessage(ok ? "就绪，配置检查通过。" : "就绪，但配置检查未通过，请点击“检测配置”。");
+  window.setInterval(onTick, 2500);
+}
+
+init();
+</script>
+</body>
+</html>
